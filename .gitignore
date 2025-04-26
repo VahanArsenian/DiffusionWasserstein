@@ -1,0 +1,4 @@
+.github
+notebooks/
+ipynb_checkpoints/
+*.pdf
