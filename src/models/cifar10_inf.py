@@ -71,7 +71,7 @@ if __name__=="__main__":
     n_gpu = torch.cuda.device_count()
     result_queue = mp.Queue()
     main(result_queue=result_queue, n_gpus=n_gpu,
-         model_name="google/ddpm-cifar10-32", batch_per_device=4)
+         model_name="google/ddpm-cifar10-32", batch_per_device=16)
     results = get_results(n_gpus=n_gpu, result_queue=result_queue)
     print("====== Results ===")
     result_queue.close()
