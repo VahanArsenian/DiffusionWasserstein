@@ -3,16 +3,16 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 import matplotlib.pyplot as plt
 import numpy as np
+from patched_ddpm import create_patched_from_pretrained
 
 
 def run_inference(rank, world_size, model_name, batch_per_device, result_queue):
-    from diffusers import DDPMPipeline
     model_id = model_name
     batch_size = batch_per_device
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
     
     with torch.no_grad():
-        ddpm = DDPMPipeline.from_pretrained(model_id).to(rank)
+        ddpm = create_patched_from_pretrained(model_id).to(rank)
         g_cuda = torch.Generator(device=rank).manual_seed(42*rank)
         output = ddpm(batch_size=batch_size, generator=g_cuda)
     result_queue.put(output.images)
@@ -75,7 +75,7 @@ if __name__=="__main__":
     results = get_results(n_gpus=n_gpu, result_queue=result_queue)
     print("====== Results ===")
     result_queue.close()
-    plot_images_grid(results, cols=n_gpu)
+    plot_images_grid(results, cols=n_gpu, save_path="test_noisy.pdf")
 
 
 
