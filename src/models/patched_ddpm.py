@@ -33,7 +33,8 @@ def step(
     # 2. compute predicted original sample from predicted noise also called
     # "predicted x_0" of formula (15) from https://arxiv.org/pdf/2006.11239.pdf
     if self.config.prediction_type == "epsilon":
-        pred_original_sample = (sample - (beta_prod_t ** (0.5) * (model_output + torch.empty_like(sample).normal_(generator=generator)))) / alpha_prod_t ** (0.5)
+        model_output = model_output + 2*(current_alpha_t*beta_prod_t)**(0.5)*torch.empty_like(sample).normal_(generator=generator)
+        pred_original_sample = (sample - beta_prod_t ** (0.5) * model_output) / alpha_prod_t ** (0.5)
     elif self.config.prediction_type == "sample":
         pred_original_sample = model_output
     elif self.config.prediction_type == "v_prediction":
