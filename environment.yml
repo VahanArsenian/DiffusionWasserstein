@@ -165,6 +165,7 @@ dependencies:
       - tomli==2.2.1
       - torch==2.7.0+cu128
       - torchaudio==2.7.0+cu128
+      - torchmetrics==1.7.1
       - torchvision==0.22.0+cu128
       - tornado==6.4.2
       - tqdm==4.67.1
