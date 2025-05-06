@@ -2,6 +2,8 @@ import torch
 from torchmetrics.image.fid import FrechetInceptionDistance
 from torchvision.transforms import functional as F
 import numpy as np
+import os 
+import pickle
 
 class FIDScore:
 
@@ -43,15 +45,22 @@ class FIDScore:
 
 if __name__ == "__main__":
     fid = FIDScore()
+    results = {}
+    root = "src/data/noisy_score_images/"
+    files = [f for f in os.listdir(root) if os.path.isfile(root+f)]
+    print(files)
     
-    fid.load_and_process_files("src/data/cifar10_sample/generated_images.npz", 
-                             "src/data/standard_score_images/generated_images.npz")
-    print(f"FID between true score and CIFAR10: {fid.compute()}")    
+    for file in files:
+        std = float(file.replace("generated_images_", "").replace(".npz", ""))
+        fid.load_and_process_files(root + file, "src/data/cifar10_sample/generated_images.npz")
+        fid_to_cifar = fid.compute().item()
+        results[std] = fid_to_cifar
+        print(f"Std {std} with: FID {fid_to_cifar}")
     
-    fid.load_and_process_files("src/data/noisy_score_images/generated_images.npz", 
-                             "src/data/cifar10_sample/generated_images.npz")
-    print(f"FID between noisy score and CIFAR10: {fid.compute()}")    
+    fid.load_and_process_files("src/data/standard_score_images/generated_images.npz", "src/data/cifar10_sample/generated_images.npz")
+    results[0] = fid.compute().item()
+    print(f"Pure score FID  is: {results[0]}")
     
-    fid.load_and_process_files("src/data/noisy_score_images/generated_images.npz", 
-                             "src/data/standard_score_images/generated_images.npz")
-    print(f"FID between noisy score and true score: {fid.compute()}")
+    with open('fid_res.pkl', 'wb') as handle:
+        pickle.dump(results, handle)
+    
