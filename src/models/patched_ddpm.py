@@ -32,8 +32,8 @@ def step(
         noise_prediction = model_output 
         pred_prev_sample = (sample-current_beta_t/(beta_prod_t**0.5)*noise_prediction)/(current_alpha_t**0.5)
 
-        if self.noisy_score and self.std > 0:
-            pred_prev_sample = pred_prev_sample + 2 * self.std * current_beta_t * torch.empty_like(sample).normal_(generator=generator)
+        pred_prev_sample = self.noise_gen.add_score_noise(pred_prev_sample, current_beta_t)
+        # pred_prev_sample = pred_prev_sample + 2 * self.std * current_beta_t * torch.empty_like(sample).normal_(generator=generator)
     else:
         raise NotImplementedError(
             f"prediction_type given as {self.config.prediction_type} must be `epsilon` for the DDPMScheduler."

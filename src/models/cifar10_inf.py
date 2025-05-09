@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -5,35 +6,36 @@ import matplotlib.pyplot as plt
 import numpy as np
 from patched_ddpm import create_patched_from_pretrained
 from argparse import ArgumentParser
+from noise import NoiseBuilder  
 
-def preset_params(ddpm, noisy_score, std):
-    ddpm.scheduler.noisy_score = noisy_score
-    ddpm.scheduler.std = std
+
+def preset_params(ddpm, noise):
+    ddpm.scheduler.noise_gen = noise
 
 def run_inference(rank, world_size, model_name, 
                   batch_per_device, result_queue, 
-                  std, noisy_score=False):
+                  noise_dist, std):
     model_id = model_name
     batch_size = batch_per_device
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
-    
+
+    g_cuda = torch.Generator(device=rank).manual_seed(42*rank)
+    noise = NoiseBuilder.build(noise_dist, std=std, generator=g_cuda)
+
     with torch.no_grad():
         ddpm = create_patched_from_pretrained(model_id).to(rank)
-        
-        preset_params(ddpm, noisy_score, std)
-        
-        g_cuda = torch.Generator(device=rank).manual_seed(42*rank)
+        preset_params(ddpm, noise)
         output = ddpm(batch_size=batch_size, generator=g_cuda, num_inference_steps=1000)
     result_queue.put(output.images)
 
 
 
 def main(result_queue, n_gpus=8, model_name="google/ddpm-cifar10-32", 
-         batch_per_device=4, std=1.0, noisy_score=False):
+         batch_per_device=4, std=1.0, noise_dist="normal"):
     world_size = n_gpus
-    # ctx = mp.get_context('spawn')
     for rank in range(n_gpus):
-        mp.Process(target=run_inference, args=(rank, world_size, model_name, batch_per_device, result_queue, std, noisy_score)).start()
+        mp.Process(target=run_inference, args=(rank, world_size, model_name, batch_per_device, 
+                                               result_queue, noise_dist, std)).start()
 
 def get_results(n_gpus, result_queue):
     results = []
@@ -42,21 +44,29 @@ def get_results(n_gpus, result_queue):
     return results
 
 
+def model_resolver(dataset: str):
+    if dataset == "cifar10":
+        return "google/ddpm-cifar10-32"
+    elif dataset == "celebahq":
+        return "google/ddpm-celebahq-256"
+    else:
+        raise ValueError(f"Unknown dataset: {dataset}")
+
+
 def plot_images_grid(images, cols: int, save_path: str = "test.pdf", base_figsize_per_subplot: tuple[float, float] = (3.0, 3.0)) -> None:
     n_images = len(images)
     rows = np.ceil(n_images / cols).astype(int)
 
-    # Calculate dynamic figure size
+
     fig_width = cols * base_figsize_per_subplot[0]
     fig_height = rows * base_figsize_per_subplot[1]
     figsize = (fig_width, fig_height)
 
     fig, axes = plt.subplots(rows, cols, figsize=figsize)
 
-    # Flatten axes array for easy iteration, handle single row/col cases
     if isinstance(axes, np.ndarray):
         axes = axes.flatten()
-    else: # Handle case with only one subplot (plt.subplots returns a single Axes object)
+    else: 
         axes = [axes]
 
 
@@ -81,34 +91,34 @@ def plot_images_grid(images, cols: int, save_path: str = "test.pdf", base_figsiz
 
 if __name__=="__main__":
     parser = ArgumentParser()
-    parser.add_argument("--noisy_score", action="store_true", help="Use noisy score")
     parser.add_argument("--store_to_file", action="store_true", help="Should store to a folder")
     parser.add_argument("--run-path", type=str, default="run_pathscore", help="Path to run_pathscore")
     parser.add_argument("--batch_size", type=int, default=1024, help="Batch size for inference")
     parser.add_argument("--std", type=float, default=1.0, help="std for the distribution")
+    parser.add_argument("--noise_dist", type=str, default="normal", help="Noise distribution for the distribution")
+    parser.add_argument("--dataset", type=str, default="cifar10", help="Dataset to use")
 
     
-    # # Gets noisy_score from argparser
     args = parser.parse_args()
-    noisy_score = args.noisy_score
     store_to_file = args.store_to_file
     batch_size = args.batch_size
     std = args.std
+    noise_dist = args.noise_dist
+    dataset = args.dataset
+    model_name = model_resolver(dataset)
 
-    if noisy_score:
-        print(f"Noisy score with std: {std}")
-        file_name = "noisy_score.pdf"
-        store_folder = "src/data/noisy_score_images/"
-    else:
-        print("Standard score")
-        file_name = "standard_score.pdf"
-        store_folder = "src/data/standard_score_images"
+    print(f"Using {noise_dist} noise distribution")
+    print(f"Noisy score with std: {std}")
+    file_name = "noisy_score.pdf"
+    root_folder = f"src/data/noisy_score_images_{dataset}/"
+    store_folder = os.path.join(root_folder, noise_dist)
+    os.makedirs(store_folder, exist_ok=True)
 
     n_gpu = torch.cuda.device_count()
     result_queue = mp.Queue()
     main(result_queue=result_queue, n_gpus=n_gpu,
-         model_name="google/ddpm-cifar10-32", batch_per_device=batch_size,
-         std=std, noisy_score=noisy_score)
+         model_name=model_name, batch_per_device=batch_size,
+         std=std, noise_dist=noise_dist)
     results = get_results(n_gpus=n_gpu, result_queue=result_queue)
     print("====== Results saved to file ======")
     

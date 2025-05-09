@@ -1,0 +1,12 @@
+torchrun --standalone src/models/cifar10_inf.py --run-path ./ --batch_size=64  --std=2 --noise_dist="uniform" --store_to_file --dataset=celebahq 
+torchrun --standalone src/models/cifar10_inf.py --run-path ./ --batch_size=64  --std=1 --noise_dist="uniform" --store_to_file --dataset=celebahq 
+torchrun --standalone src/models/cifar10_inf.py --run-path ./ --batch_size=64  --std=0 --noise_dist="uniform" --store_to_file --dataset=celebahq 
+torchrun --standalone src/models/cifar10_inf.py --run-path ./ --batch_size=64  --std=0.5 --noise_dist="uniform" --store_to_file --dataset=celebahq 
+torchrun --standalone src/models/cifar10_inf.py --run-path ./ --batch_size=64  --std=0.25 --noise_dist="uniform" --store_to_file --dataset=celebahq 
+
+torchrun --standalone src/models/cifar10_inf.py --run-path ./ --batch_size=64  --std=4 --noise_dist="normal" --store_to_file --dataset=celebahq 
+torchrun --standalone src/models/cifar10_inf.py --run-path ./ --batch_size=64  --std=2 --noise_dist="normal" --store_to_file --dataset=celebahq 
+torchrun --standalone src/models/cifar10_inf.py --run-path ./ --batch_size=64  --std=1 --noise_dist="normal" --store_to_file --dataset=celebahq 
+torchrun --standalone src/models/cifar10_inf.py --run-path ./ --batch_size=64  --std=0 --noise_dist="normal" --store_to_file --dataset=celebahq 
+torchrun --standalone src/models/cifar10_inf.py --run-path ./ --batch_size=64  --std=0.5 --noise_dist="normal" --store_to_file --dataset=celebahq 
+torchrun --standalone src/models/cifar10_inf.py --run-path ./ --batch_size=64  --std=0.25 --noise_dist="normal" --store_to_file --dataset=celebahq 
