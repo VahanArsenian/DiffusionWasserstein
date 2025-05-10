@@ -14,6 +14,7 @@ class FIDScore:
         self.device = device
         self.fid = FrechetInceptionDistance(normalize=False, feature=num_features).to(0)
         self.batch_size = batch_size
+        print("Init FID with device: ", self.device, self.num_features, self.batch_size)
 
     @classmethod
     def preprocess_image(cls, image):
@@ -91,7 +92,9 @@ if __name__ == "__main__":
     batch_size = args.batch_size
     num_features = args.num_features
 
-    folder_eval(root_gen, path_real, force)
+    print("Params ", force, root_gen, path_real, batch_size, num_features)
+
+    folder_eval(root_gen, path_real, force, batch_size=batch_size, num_features=num_features)
 
 # python src/metrics/fid.py --noisy_folder=src/data/noisy_score_images_cifar10/normal/ --real_images=src/data/cifar10_sample/real_images.npz 
 # python src/metrics/fid.py --noisy_folder=src/data/noisy_score_images_cifar10/uniform/ --real_images=src/data/cifar10_sample/real_images.npz 
