@@ -1,5 +1,4 @@
 .github
-notebooks/
 ipynb_checkpoints/
 *.pdf
 .amlignore*
@@ -7,3 +6,4 @@ ipynb_checkpoints/
 *-checkpoint.py
 .ipynb_checkpoints*
 *.npz
+.amplignore*

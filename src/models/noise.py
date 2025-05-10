@@ -1,5 +1,6 @@
 import torch 
 from abc import ABC
+import cupy as cp
 
 
 class Noise(ABC):
@@ -34,23 +35,28 @@ class UniformNoise(Noise):
         noise = torch.empty_like(like).uniform_(-3**(0.5), to=3**(0.5), generator=self.generator)
         return noise * self.std
 
+# TODO: Move to cupy implementation, https://docs.cupy.dev/en/stable/user_guide/interoperability.html#pytorch
 class LaplaceNoise(Noise):
     def __init__(self, std: float = 1, generator=None):
         self.std = std
-        self.laplace = torch.distributions.Laplace(loc=0, scale=std)
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
-        noise = self.laplace.sample(like.shape).to(like.device)
+
+        noise = torch.as_tensor(cp.random.laplace(0, self.std, like.shape, 
+                                                  dtype=str(like.dtype).replace("torch.", "")))
+        # noise = self.laplace.sample(like.shape).to(like.device)
         return noise
 
+# TODO: Same as above, move to cupy implementation
 class StudentTNoise(Noise):
     def __init__(self, std: float = 1, generator=None):
         self.std = std
-        self.student_t = torch.distributions.StudentT(df=3, loc=0, scale=std)
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
-        noise = self.student_t.sample(like.shape).to(like.device)
-        return noise
+        noise = torch.as_tensor(cp.random.standard_t(3, like.shape, 
+                                                  dtype=str(like.dtype).replace("torch.", "")))
+
+        return self.std * noise
 
 class NoiseBuilder:
         
