@@ -91,7 +91,8 @@ def plot_images_grid(images, cols: int, save_path: str = "test.pdf", base_figsiz
 
 if __name__=="__main__":
     parser = ArgumentParser()
-    parser.add_argument("--store_to_file", action="store_true", help="Should store to a folder")
+    parser.add_argument("--store_to_pdf", action="store_true", help="Should store to a pdf")
+    parser.add_argument("--store_to_file", action="store_true", help="Should store to a npz")
     parser.add_argument("--run-path", type=str, default="run_pathscore", help="Path to run_pathscore")
     parser.add_argument("--batch_size", type=int, default=1024, help="Batch size for inference")
     parser.add_argument("--std", type=float, default=1.0, help="std for the distribution")
@@ -100,6 +101,7 @@ if __name__=="__main__":
 
     
     args = parser.parse_args()
+    store_to_pdf = args.store_to_pdf
     store_to_file = args.store_to_file
     batch_size = args.batch_size
     std = args.std
@@ -120,7 +122,7 @@ if __name__=="__main__":
          model_name=model_name, batch_per_device=batch_size,
          std=std, noise_dist=noise_dist)
     results = get_results(n_gpus=n_gpu, result_queue=result_queue)
-    print("====== Results saved to file ======")
+    print("====== Storing results ======")
     
     result_queue.close()
     if store_to_file:
@@ -128,13 +130,11 @@ if __name__=="__main__":
         # Save the images to a folder
         generated_as_np = [res.convert("RGB") for res in results]
         np.savez_compressed(f"{store_folder}/generated_images_{std}.npz", *generated_as_np)
-    else:
+    if store_to_pdf:
         print("Storing to pdf")
         # Save the images to a single PDF file
-        plot_images_grid(results, cols=n_gpu, save_path=file_name)
-    print(f"Results saved")
+        plot_images_grid(results, cols=n_gpu, save_path=f"{store_folder}/generated_images_{std}.pdf")
+    
+    print(f"Results saved in {store_folder}")
     print("===================================")
-
-
-
 
