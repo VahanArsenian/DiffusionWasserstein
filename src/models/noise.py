@@ -23,37 +23,41 @@ class GaussianNoise(Noise):
         self.generator = generator
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
-        noise = torch.empty_like(like).normal_(generator=self.generator)
-        return noise * self.std
+        noise = torch.empty_like(like).normal_(std=self.std, generator=self.generator)
+        return noise
 
 class UniformNoise(Noise):
     def __init__(self, std: float = 1, generator=None):
         self.std = std
         self.generator = generator
+        self.from_ = -3**(0.5) * std
+        self.to_ = 3**(0.5) * std
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
-        noise = torch.empty_like(like).uniform_(-3**(0.5), to=3**(0.5), generator=self.generator)
+        noise = torch.empty_like(like).uniform_(self.from_, to=self.to_, generator=self.generator)
         return noise * self.std
 
 class LaplaceNoise(Noise):
     def __init__(self, std: float = 1, generator=None):
-        self.std = std / 2**(0.5)
+        self.std = std
+        self.scale = std / 2**(0.5)
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
 
-        noise = torch.as_tensor(cp.random.laplace(0, self.std, like.shape, 
+        noise = torch.as_tensor(cp.random.laplace(0, self.scale, like.shape, 
                                                   dtype=str(like.dtype).replace("torch.", "")))
         return noise
 
 class StudentTNoise(Noise):
     def __init__(self, std: float = 1, generator=None):
-        self.std = std / (3**(0.5))
+        self.std = std
+        self.scale = std / 3**(0.5)
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
         noise = torch.as_tensor(cp.random.standard_t(3, like.shape, 
                                                   dtype=str(like.dtype).replace("torch.", "")))
 
-        return self.std * noise
+        return noise * self.scale
 
 class NoiseBuilder:
         
