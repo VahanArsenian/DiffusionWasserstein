@@ -42,10 +42,10 @@ class LaplaceNoise(Noise):
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
 
-        noise = torch.as_tensor(cp.random.laplace(0, self.std, like.shape, 
+        noise = torch.as_tensor(cp.random.laplace(0, 1/2**(0.5), like.shape, 
                                                   dtype=str(like.dtype).replace("torch.", "")))
         # noise = self.laplace.sample(like.shape).to(like.device)
-        return noise
+        return noise * self.std
 
 # TODO: Same as above, move to cupy implementation
 class StudentTNoise(Noise):
@@ -56,7 +56,7 @@ class StudentTNoise(Noise):
         noise = torch.as_tensor(cp.random.standard_t(3, like.shape, 
                                                   dtype=str(like.dtype).replace("torch.", "")))
 
-        return self.std * noise
+        return noise/3**(0.5) * self.std
 
 class NoiseBuilder:
         
