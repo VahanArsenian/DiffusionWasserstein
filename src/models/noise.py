@@ -23,40 +23,44 @@ class GaussianNoise(Noise):
         self.generator = generator
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
-        noise = torch.empty_like(like).normal_(generator=self.generator)
-        return noise * self.std
+        noise = torch.empty_like(like).normal_(std=self.std, generator=self.generator)
+        return noise
 
 class UniformNoise(Noise):
     def __init__(self, std: float = 1, generator=None):
         self.std = std
         self.generator = generator
+        self.from = -3**(0.5) * std
+        self.to = 3**(0.5) * std
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
-        noise = torch.empty_like(like).uniform_(-3**(0.5), to=3**(0.5), generator=self.generator)
+        noise = torch.empty_like(like).uniform_(self.from, to=self.to, generator=self.generator)
         return noise * self.std
 
 # TODO: Move to cupy implementation, https://docs.cupy.dev/en/stable/user_guide/interoperability.html#pytorch
 class LaplaceNoise(Noise):
     def __init__(self, std: float = 1, generator=None):
         self.std = std
+        self.scale = std / 2**(0.5)
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
 
-        noise = torch.as_tensor(cp.random.laplace(0, 1/2**(0.5), like.shape, 
+        noise = torch.as_tensor(cp.random.laplace(0, self.scale, like.shape, 
                                                   dtype=str(like.dtype).replace("torch.", "")))
         # noise = self.laplace.sample(like.shape).to(like.device)
-        return noise * self.std
+        return noise
 
 # TODO: Same as above, move to cupy implementation
 class StudentTNoise(Noise):
     def __init__(self, std: float = 1, generator=None):
         self.std = std
+        self.scale = std / 3**(0.5)
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
         noise = torch.as_tensor(cp.random.standard_t(3, like.shape, 
                                                   dtype=str(like.dtype).replace("torch.", "")))
 
-        return noise/3**(0.5) * self.std
+        return noise * self.scale
 
 class NoiseBuilder:
         
