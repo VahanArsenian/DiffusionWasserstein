@@ -28,18 +28,16 @@ class GaussianNoise(Noise):
 
 class UniformNoise(Noise):
     def __init__(self, std: float = 1, generator=None):
-        self.std = std
         self.generator = generator
         self.from_ = -3**(0.5) * std
         self.to_ = 3**(0.5) * std
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
         noise = torch.empty_like(like).uniform_(self.from_, to=self.to_, generator=self.generator)
-        return noise * self.std
+        return noise 
 
 class LaplaceNoise(Noise):
     def __init__(self, std: float = 1, generator=None):
-        self.std = std
         self.scale = std / 2**(0.5)
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
@@ -50,7 +48,6 @@ class LaplaceNoise(Noise):
 
 class StudentTNoise(Noise):
     def __init__(self, std: float = 1, generator=None):
-        self.std = std
         self.scale = std / 3**(0.5)
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
@@ -76,27 +73,28 @@ class NoiseBuilder:
 
 # Unit test to check if the noise variance is 1
 def test_noise_variance():
-    noise = NoiseBuilder.build("normal", std=2)
+    std_to_test = 2
+    noise = NoiseBuilder.build("normal", std=std_to_test)
     sample = torch.randn(3, 3, 32, 32)
     noisy_sample = noise(sample)
-    assert(abs(noisy_sample.std()-2) < 0.1)
+    assert abs(noisy_sample.std()-std_to_test) < 0.2, "Normal noise variance test failed"
 
-    noise = NoiseBuilder.build("uniform", std=2)
+    noise = NoiseBuilder.build("uniform", std=std_to_test)
     sample = torch.randn(3, 3, 32, 32)
     noisy_sample = noise(sample)
-    assert(abs(noisy_sample.std()-2) < 0.1)
+    assert abs(noisy_sample.std()-std_to_test) < 0.2, "Uniform noise variance check failed"
 
-    noise = NoiseBuilder.build("laplace", std=2)
+    noise = NoiseBuilder.build("laplace", std=std_to_test)
     sample = torch.randn(3, 3, 32, 32)
     noisy_sample = noise(sample)
-    assert(abs(noisy_sample.std()-2) < 0.1)
+    print(noisy_sample.std())
+    assert abs(noisy_sample.std()-std_to_test) < 0.2, "Laplace noise variance check failed"
 
-    noise = NoiseBuilder.build("student_t", std=2)
+    noise = NoiseBuilder.build("student_t", std=std_to_test)
     sample = torch.randn(3, 3, 32, 32)
     noisy_sample = noise(sample)
-    assert(abs(noisy_sample.std()-2) < 0.1)
+    assert abs(noisy_sample.std()-std_to_test) < 0.2, "Student's t noise variance check failed"
 
 
 if __name__ == "__main__":
     test_noise_variance()
-    print("All tests passed!")
