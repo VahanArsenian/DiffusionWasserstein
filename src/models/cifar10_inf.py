@@ -13,7 +13,7 @@ def preset_params(ddpm, noise):
     ddpm.scheduler.noise_gen = noise
 
 def run_inference(rank, world_size, model_name, 
-                  batch_per_device, result_queue, 
+                  batch_per_device, total_cycles_per_device, result_queue, 
                   noise_dist, std):
     model_id = model_name
     batch_size = batch_per_device
@@ -22,20 +22,21 @@ def run_inference(rank, world_size, model_name,
     g_cuda = torch.Generator(device=rank).manual_seed(42*rank)
     noise = NoiseBuilder.build(noise_dist, std=std, generator=g_cuda)
 
-    with torch.no_grad():
-        ddpm = create_patched_from_pretrained(model_id).to(rank)
-        preset_params(ddpm, noise)
-        output = ddpm(batch_size=batch_size, generator=g_cuda, num_inference_steps=1000)
-    result_queue.put(output.images)
+    for i in range(total_cycles_per_device):
+        with torch.no_grad():
+            ddpm = create_patched_from_pretrained(model_id).to(rank)
+            preset_params(ddpm, noise)
+            output = ddpm(batch_size=batch_size, generator=g_cuda, num_inference_steps=1000)
+            result_queue.put(output.images)
 
 
 
 def main(result_queue, n_gpus=8, model_name="google/ddpm-cifar10-32", 
-         batch_per_device=4, std=1.0, noise_dist="normal"):
+         batch_per_device=4, total_cycles_per_device=1, std=1.0, noise_dist="normal"):
     world_size = n_gpus
     for rank in range(n_gpus):
         mp.Process(target=run_inference, args=(rank, world_size, model_name, batch_per_device, 
-                                               result_queue, noise_dist, std)).start()
+                                               total_cycles_per_device, result_queue, noise_dist, std)).start()
 
 def get_results(n_gpus, result_queue):
     results = []
@@ -97,6 +98,7 @@ if __name__=="__main__":
     parser.add_argument("--std", type=float, default=1.0, help="std for the distribution")
     parser.add_argument("--noise_dist", type=str, default="normal", help="Noise distribution for the distribution")
     parser.add_argument("--dataset", type=str, default="cifar10", help="Dataset to use")
+    parser.add_argument("--total_cycles_per_device", type=int, default=1, help="Total cycles per device. The total number of images will be total_cycles_per_device * batch_size * n_gpus")
 
     
     args = parser.parse_args()
@@ -105,7 +107,9 @@ if __name__=="__main__":
     std = args.std
     noise_dist = args.noise_dist
     dataset = args.dataset
+    total_cycles_per_device = args.total_cycles_per_device
     model_name = model_resolver(dataset)
+
 
     print(f"Using {noise_dist} noise distribution")
     print(f"Noisy score with std: {std}")
@@ -118,7 +122,7 @@ if __name__=="__main__":
     result_queue = mp.Queue()
     main(result_queue=result_queue, n_gpus=n_gpu,
          model_name=model_name, batch_per_device=batch_size,
-         std=std, noise_dist=noise_dist)
+         std=std, noise_dist=noise_dist, total_cycles_per_device=total_cycles_per_device)
     results = get_results(n_gpus=n_gpu, result_queue=result_queue)
     print("====== Results saved to file ======")
     

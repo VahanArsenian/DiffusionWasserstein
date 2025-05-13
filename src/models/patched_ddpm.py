@@ -66,6 +66,7 @@ def step(
 
 
 def create_patched_from_pretrained(model_name):
+    # Note: DDPMPipeline has output clamping, as it needs to output valid pixel values
     ddpm = DDPMPipeline.from_pretrained(model_name)
     ddpm.scheduler.step = types.MethodType(step, ddpm.scheduler)
     return ddpm

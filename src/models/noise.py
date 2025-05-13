@@ -35,22 +35,19 @@ class UniformNoise(Noise):
         noise = torch.empty_like(like).uniform_(-3**(0.5), to=3**(0.5), generator=self.generator)
         return noise * self.std
 
-# TODO: Move to cupy implementation, https://docs.cupy.dev/en/stable/user_guide/interoperability.html#pytorch
 class LaplaceNoise(Noise):
     def __init__(self, std: float = 1, generator=None):
-        self.std = std
+        self.std = std / 2**(0.5)
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
 
         noise = torch.as_tensor(cp.random.laplace(0, self.std, like.shape, 
                                                   dtype=str(like.dtype).replace("torch.", "")))
-        # noise = self.laplace.sample(like.shape).to(like.device)
         return noise
 
-# TODO: Same as above, move to cupy implementation
 class StudentTNoise(Noise):
     def __init__(self, std: float = 1, generator=None):
-        self.std = std
+        self.std = std / (3**(0.5))
 
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
         noise = torch.as_tensor(cp.random.standard_t(3, like.shape, 
@@ -72,3 +69,30 @@ class NoiseBuilder:
             return StudentTNoise(std=std, generator=generator)
         else:
             raise ValueError(f"Unsupported distribution: {distribution}")
+
+# Unit test to check if the noise variance is 1
+def test_noise_variance():
+    noise = NoiseBuilder.build("normal", std=2)
+    sample = torch.randn(3, 3, 32, 32)
+    noisy_sample = noise(sample)
+    assert(abs(noisy_sample.std()-2) < 0.1)
+
+    noise = NoiseBuilder.build("uniform", std=2)
+    sample = torch.randn(3, 3, 32, 32)
+    noisy_sample = noise(sample)
+    assert(abs(noisy_sample.std()-2) < 0.1)
+
+    noise = NoiseBuilder.build("laplace", std=2)
+    sample = torch.randn(3, 3, 32, 32)
+    noisy_sample = noise(sample)
+    assert(abs(noisy_sample.std()-2) < 0.1)
+
+    noise = NoiseBuilder.build("student_t", std=2)
+    sample = torch.randn(3, 3, 32, 32)
+    noisy_sample = noise(sample)
+    assert(abs(noisy_sample.std()-2) < 0.1)
+
+
+if __name__ == "__main__":
+    test_noise_variance()
+    print("All tests passed!")
