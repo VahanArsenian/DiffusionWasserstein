@@ -135,6 +135,6 @@ if __name__=="__main__":
         # Save the images to a single PDF file
         plot_images_grid(results, cols=n_gpu, save_path=f"{store_folder}/generated_images_{std}.pdf")
     
-    print(f"Results saved")
+    print(f"Results saved in {store_folder}")
     print("===================================")
 
