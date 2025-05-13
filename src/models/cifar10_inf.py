@@ -120,7 +120,7 @@ if __name__=="__main__":
          model_name=model_name, batch_per_device=batch_size,
          std=std, noise_dist=noise_dist)
     results = get_results(n_gpus=n_gpu, result_queue=result_queue)
-    print("====== Results saved to file ======")
+    print("====== Storing results ======")
     
     result_queue.close()
     if store_to_file:
@@ -131,10 +131,8 @@ if __name__=="__main__":
     else:
         print("Storing to pdf")
         # Save the images to a single PDF file
-        plot_images_grid(results, cols=n_gpu, save_path=file_name)
+        plot_images_grid(results, cols=n_gpu, save_path=f"{store_folder}/generated_images_{std}.pdf")
+    
     print(f"Results saved")
     print("===================================")
-
-
-
 
