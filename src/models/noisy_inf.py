@@ -25,10 +25,9 @@ def run_inference(rank, world_size, model_name,
     ddpm = create_patched_from_pretrained(model_id).to(rank)
     preset_params(ddpm, noise)
 
-    for i in range(total_cycles_per_device):
-        with torch.no_grad():
-            output = ddpm(batch_size=batch_size, generator=g_cuda, num_inference_steps=1000)
-            result_queue.put(output.images)
+    with torch.no_grad():
+        output = ddpm(batch_size=batch_size, generator=g_cuda, num_inference_steps=1000)
+        result_queue.put(output.images)
 
 
 
@@ -120,16 +119,19 @@ if __name__=="__main__":
     root_folder = f"src/data/noisy_score_images_{dataset}/"
     store_folder = os.path.join(root_folder, noise_dist)
     os.makedirs(store_folder, exist_ok=True)
-
+    results = []
     n_gpu = torch.cuda.device_count()
-    result_queue = mp.Queue()
-    main(result_queue=result_queue, n_gpus=n_gpu,
-         model_name=model_name, batch_per_device=batch_size,
-         std=std, noise_dist=noise_dist, total_cycles_per_device=total_cycles_per_device)
-    results = get_results(n_gpus=n_gpu, result_queue=result_queue)
-    print("====== Storing results ======")
-    
-    result_queue.close()
+    for i in range(total_cycles_per_device):
+        print("Cycle ", i)
+        print("===================================")
+        result_queue = mp.Queue()
+        main(result_queue=result_queue, n_gpus=n_gpu,
+            model_name=model_name, batch_per_device=batch_size,
+            std=std, noise_dist=noise_dist, total_cycles_per_device=total_cycles_per_device)
+        results += get_results(n_gpus=n_gpu, result_queue=result_queue, )
+        print("====== Storing results ======")
+        
+        result_queue.close()
     if store_to_file:
         print("Storing to file")
         # Save the images to a folder
