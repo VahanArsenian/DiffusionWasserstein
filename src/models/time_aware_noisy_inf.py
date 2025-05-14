@@ -28,17 +28,20 @@ def run_inference(rank, world_size, model_name,
 
 
 def main(result_queue, n_gpus=8, model_name="google/ddpm-cifar10-32", 
-         batch_per_device=4, total_cycles_per_device=1, std=1.0, noise_dist="normal"):
+         batch_per_device=4, std=1.0, noise_dist="normal"):
     world_size = n_gpus
     for rank in range(n_gpus):
         mp.Process(target=run_inference, args=(rank, world_size, model_name, batch_per_device, 
-                                               total_cycles_per_device, result_queue, noise_dist, std)).start()
+                                               result_queue, noise_dist, std)).start()
 
-def get_results(result_queue):
+def get_results(n_gpu, result_queue):
     results = defaultdict(list)
-    while result_queue.empty() is False:
-        tmp = result_queue.get()
-        results[tmp[0]].append(tmp[1])
+    for i in range(n_gpu):
+        # Magic number for the temporal resolution
+        for _ in range(3):
+            tmp = result_queue.get()
+            print(tmp[0], "Received")
+            results[tmp[0]].append(tmp[1])
     return results
 
 
@@ -84,8 +87,8 @@ if __name__=="__main__":
         result_queue = mp.Queue()
         main(result_queue=result_queue, n_gpus=n_gpu,
             model_name=model_name, batch_per_device=batch_size,
-            std=std, noise_dist=noise_dist, total_cycles_per_device=total_cycles_per_device)
-        tmp_res = get_results(result_queue=result_queue)
+            std=std, noise_dist=noise_dist)
+        tmp_res = get_results(n_gpu=n_gpu,result_queue=result_queue)
         for k, v in tmp_res.items():
             results[k].append(v)
         result_queue.close()

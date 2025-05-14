@@ -100,25 +100,24 @@ class QueuedDDPMPipeline(DDPMPipeline):
             image = image.to(self.device)
         else:
             image = randn_tensor(image_shape, generator=generator, device=self.device, dtype=self.unet.dtype)
-
         # set step values
         self.scheduler.set_timesteps(num_inference_steps)
 
         for t in self.progress_bar(self.scheduler.timesteps):
             # 1. predict noise model_output
             model_output = self.unet(image, t).sample
-
             # 2. compute previous image: x_t -> x_t-1
             image = self.scheduler.step(model_output, t, image, generator=generator).prev_sample
 
             if XLA_AVAILABLE:
                 xm.mark_step()
-            
-            if t in {249,499,749}:
+
+            if t.item() in {250,500,750}:
                 image_interim = (image / 2 + 0.5).clamp(0, 1)
                 image_interim = image_interim.cpu().permute(0, 2, 3, 1).numpy()
                 if output_type == "pil":
                     image_interim = self.numpy_to_pil(image_interim)
+
                 self.queue.put((t, image_interim))
 
 
