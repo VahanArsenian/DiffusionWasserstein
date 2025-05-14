@@ -1,8 +1,8 @@
-from diffusers import DDPMPipeline
+from diffusers import DDPMPipeline, PNDMPipeline
 import torch
 import types
 from diffusers.utils.torch_utils import randn_tensor
-from typing import Union
+from typing import Optional, Union, List, Tuple
 from diffusers.schedulers.scheduling_ddpm import DDPMSchedulerOutput
 
 def step(
@@ -63,6 +63,20 @@ def step(
         )
 
     return DDPMSchedulerOutput(prev_sample=pred_prev_sample, pred_original_sample=None)
+
+
+# class PatchedDDPMPipeline(DDPMPipeline):
+
+#     @torch.no_grad()
+#     def __call__(
+#         self,
+#         batch_size: int = 1,
+#         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
+#         num_inference_steps: int = 1000,
+#         output_type: Optional[str] = "pil",
+#         return_dict: bool = True,
+#     ) -> Union[ImagePipelineOutput, Tuple]:
+#         pass
 
 
 def create_patched_from_pretrained(model_name):

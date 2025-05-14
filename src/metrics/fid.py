@@ -63,6 +63,7 @@ def folder_eval(root_gen, path_real, force=False, batch_size=2048, num_features=
         if std in results:
             print(f"Std {std} already computed")
             continue
+        print(f"Computing for {file}")
         fid.load_and_process_file(root_gen + file, real=False)
         fid_to_cifar = fid.compute().item()
         results[std] = fid_to_cifar

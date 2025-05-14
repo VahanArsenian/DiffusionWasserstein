@@ -21,11 +21,12 @@ def run_inference(rank, world_size, model_name,
 
     g_cuda = torch.Generator(device=rank).manual_seed(42*rank)
     noise = NoiseBuilder.build(noise_dist, std=std, generator=g_cuda)
+    
+    ddpm = create_patched_from_pretrained(model_id).to(rank)
+    preset_params(ddpm, noise)
 
     for i in range(total_cycles_per_device):
         with torch.no_grad():
-            ddpm = create_patched_from_pretrained(model_id).to(rank)
-            preset_params(ddpm, noise)
             output = ddpm(batch_size=batch_size, generator=g_cuda, num_inference_steps=1000)
             result_queue.put(output.images)
 
