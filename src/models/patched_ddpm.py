@@ -6,6 +6,7 @@ from diffusers.utils.torch_utils import randn_tensor
 from typing import Optional, Union, List, Tuple
 from diffusers.schedulers.scheduling_ddpm import DDPMSchedulerOutput
 
+
 if is_torch_xla_available():
     import torch_xla.core.xla_model as xm
 
@@ -73,7 +74,7 @@ def step(
     return DDPMSchedulerOutput(prev_sample=pred_prev_sample, pred_original_sample=None)
 
 
-class QueuedDDPMPipeline(DDPMPipeline):
+class TemporalDDPMPipeline(DDPMPipeline):
 
     @torch.no_grad()
     def __call__(
@@ -103,6 +104,8 @@ class QueuedDDPMPipeline(DDPMPipeline):
         # set step values
         self.scheduler.set_timesteps(num_inference_steps)
 
+        results = {}
+
         for t in self.progress_bar(self.scheduler.timesteps):
             # 1. predict noise model_output
             model_output = self.unet(image, t).sample
@@ -112,23 +115,24 @@ class QueuedDDPMPipeline(DDPMPipeline):
             if XLA_AVAILABLE:
                 xm.mark_step()
 
-            if t.item() in {250,500,750}:
+            if t.item() in {250,500,750,0}:
                 image_interim = (image / 2 + 0.5).clamp(0, 1)
                 image_interim = image_interim.cpu().permute(0, 2, 3, 1).numpy()
                 if output_type == "pil":
                     image_interim = self.numpy_to_pil(image_interim)
 
-                self.queue.put((t, image_interim))
+                results[t.item()] = image_interim
+            
+        return results
 
 
 
-def create_patched_from_pretrained(model_name, noise, queue: Optional[torch.multiprocessing.Queue] = None):
+def create_patched_from_pretrained(model_name, noise, temporal=True):
     # Note: DDPMPipeline has output clamping, as it needs to output valid pixel values
-    if queue is None:
-        ddpm = DDPMPipeline.from_pretrained(model_name)
+    if temporal:
+        ddpm = TemporalDDPMPipeline.from_pretrained(model_name)
     else:
-        ddpm = QueuedDDPMPipeline.from_pretrained(model_name)
-        ddpm.queue = queue
+        ddpm = DDPMPipeline.from_pretrained(model_name)
     ddpm.scheduler.step = types.MethodType(step, ddpm.scheduler)
     ddpm.scheduler.noise_gen = noise
     return ddpm

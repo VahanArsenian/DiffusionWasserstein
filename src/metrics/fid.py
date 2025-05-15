@@ -51,7 +51,7 @@ def folder_eval(root_gen, path_real, force=False, batch_size=2048, num_features=
         results = read_cache(root_gen)
     else:
         results = {}
-
+    print(files)
     files = list(filter(lambda x: x != "fid_cache.pkl", files))
     stds = [float(file.replace("generated_images_", "").replace(".npz", "")) for file in files]
 
