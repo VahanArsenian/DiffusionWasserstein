@@ -10,11 +10,12 @@ from argparse import ArgumentParser
 
 class FIDScore:
 
-    def __init__(self, device=0, batch_size=2048, num_features=2048):
+    def __init__(self, device=0, batch_size=2048, num_features=2048, reset_real_features=True):
         self.device = device
-        self.fid = FrechetInceptionDistance(normalize=False, feature=num_features).to(0)
+        # Note: The implementation of reset sucks, we should reimplement it
+        self.fid = FrechetInceptionDistance(normalize=False, feature=num_features, reset_real_features=reset_real_features).to(0)
         self.batch_size = batch_size
-        print("Init FID with device: ", self.device, self.num_features, self.batch_size)
+        print("Init FID with device: ", self.device, num_features, self.batch_size)
 
     @classmethod
     def preprocess_image(cls, image):
@@ -22,46 +23,48 @@ class FIDScore:
         image = image.permute(0, 3, 1, 2)
         return image
 
-    def update(self, image_set_left, image_set_right):
-        self.fid.update(image_set_left, real=True)
-        self.fid.update(image_set_right, real=False)
-        
     def compute(self):
         res = (self.fid.compute())
         print("Cache reset initiated")
         self.fid.reset()
         return res
 
-    def load_and_process_files(self, file_path_left, file_path_right):
-        image_left = np.load(file_path_left)
-        image_right = np.load(file_path_right)
+    def load_and_process_file(self, file, real):
+        images = np.load(file)
         batch_size = self.batch_size
 
-        print("Comapring # of images: ", len(image_left), len(image_right))
-        for i in range(0, len(image_left), batch_size):
+        print("Comapring # of images: ", len(images))
+        for i in range(0, len(images), batch_size):
             print("Updating FID for images: ", i, i+batch_size)
-            image_set_left = torch.cat([self.preprocess_image(image) for image in list(image_left.values())][i:i+batch_size]).to(0)
-            image_set_right = torch.cat([self.preprocess_image(image) for image in list(image_right.values())][i:i+batch_size]).to(0)
-            print(image_set_left.shape, image_set_right.shape)  
-            self.update(image_set_left, image_set_right)
+            image_set = torch.cat([self.preprocess_image(image) for image in list(images.values())][i:i+batch_size]).to(0)
+            print(image_set.shape)  
+            self.fid.update(image_set, real)
 
 
 def folder_eval(root_gen, path_real, force=False, batch_size=2048, num_features=2048):
-    fid = FIDScore(batch_size=batch_size, num_features=num_features)    
+    fid = FIDScore(batch_size=batch_size, num_features=num_features, reset_real_features=False)    
+    
+    print("Computing real features once!")
+    
     files = [f for f in os.listdir(root_gen) if os.path.isfile(root_gen+f)]
     if "fid_cache.pkl" in files and not force:
         results = read_cache(root_gen)
     else:
         results = {}
-
-    files = list(filter(lambda x: x != "fid_cache.pkl", files))
     print(files)
-    for file in files:
-        std = float(file.replace("generated_images_", "").replace(".npz", ""))
+    files = list(filter(lambda x: x != "fid_cache.pkl", files))
+    stds = [float(file.replace("generated_images_", "").replace(".npz", "")) for file in files]
+
+    if set(stds) != set(results.keys()) or force:
+        fid.load_and_process_file(path_real, real=True)
+
+    print(files)
+    for file, std in zip(files, stds):
         if std in results:
             print(f"Std {std} already computed")
             continue
-        fid.load_and_process_files(root_gen + file, path_real)
+        print(f"Computing for {file}")
+        fid.load_and_process_file(root_gen + file, real=False)
         fid_to_cifar = fid.compute().item()
         results[std] = fid_to_cifar
         print(f"Std {std} with: FID {fid_to_cifar}")

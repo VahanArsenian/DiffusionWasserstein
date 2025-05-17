@@ -1,9 +1,18 @@
-from diffusers import DDPMPipeline
+from diffusers import DDPMPipeline, ImagePipelineOutput
+from diffusers.pipelines.ddpm.pipeline_ddpm import XLA_AVAILABLE, is_torch_xla_available
 import torch
 import types
 from diffusers.utils.torch_utils import randn_tensor
-from typing import Union
+from typing import Optional, Union, List, Tuple
 from diffusers.schedulers.scheduling_ddpm import DDPMSchedulerOutput
+
+
+if is_torch_xla_available():
+    import torch_xla.core.xla_model as xm
+
+    XLA_AVAILABLE = True
+else:
+    XLA_AVAILABLE = False
 
 def step(
     self,
@@ -65,7 +74,65 @@ def step(
     return DDPMSchedulerOutput(prev_sample=pred_prev_sample, pred_original_sample=None)
 
 
-def create_patched_from_pretrained(model_name):
-    ddpm = DDPMPipeline.from_pretrained(model_name)
-    ddpm.scheduler.step = types.MethodType(step, ddpm.scheduler)
-    return ddpm
+class TemporalDDPMPipeline(DDPMPipeline):
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, noise, timesteps={0}, **kwargs):
+        # Load the model
+        pipeline = super().from_pretrained(pretrained_model_name_or_path, **kwargs)
+    
+        pipeline.scheduler.step = types.MethodType(step, pipeline.scheduler)
+        pipeline.scheduler.noise_gen = noise
+        pipeline.timesteps_to_return = timesteps
+        return pipeline
+
+    @torch.no_grad()
+    def __call__(
+        self,
+        batch_size: int = 1,
+        generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
+        num_inference_steps: int = 1000,
+        output_type: Optional[str] = "pil",
+        return_dict: bool = True,
+    ) -> Union[ImagePipelineOutput, Tuple]:
+        if isinstance(self.unet.config.sample_size, int):
+            image_shape = (
+                batch_size,
+                self.unet.config.in_channels,
+                self.unet.config.sample_size,
+                self.unet.config.sample_size,
+            )
+        else:
+            image_shape = (batch_size, self.unet.config.in_channels, *self.unet.config.sample_size)
+
+        if self.device.type == "mps":
+            # randn does not work reproducibly on mps
+            image = randn_tensor(image_shape, generator=generator, dtype=self.unet.dtype)
+            image = image.to(self.device)
+        else:
+            image = randn_tensor(image_shape, generator=generator, device=self.device, dtype=self.unet.dtype)
+        # set step values
+        self.scheduler.set_timesteps(num_inference_steps)
+
+        results = {}
+
+        for t in self.progress_bar(self.scheduler.timesteps):
+            # 1. predict noise model_output
+            model_output = self.unet(image, t).sample
+            # 2. compute previous image: x_t -> x_t-1
+            image = self.scheduler.step(model_output, t, image, generator=generator).prev_sample
+
+            if XLA_AVAILABLE:
+                xm.mark_step()
+
+            if t.item() in self.timesteps_to_return:
+                image_interim = (image / 2 + 0.5).clamp(0, 1)
+                image_interim = image_interim.cpu().permute(0, 2, 3, 1).numpy()
+                if output_type == "pil":
+                    image_interim = self.numpy_to_pil(image_interim)
+
+                results[t.item()] = image_interim
+            
+        return results
+
+
