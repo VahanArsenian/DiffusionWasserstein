@@ -76,6 +76,16 @@ def step(
 
 class TemporalDDPMPipeline(DDPMPipeline):
 
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, noise, timesteps={0}, **kwargs):
+        # Load the model
+        pipeline = super().from_pretrained(pretrained_model_name_or_path, **kwargs)
+    
+        pipeline.scheduler.step = types.MethodType(step, pipeline.scheduler)
+        pipeline.scheduler.noise_gen = noise
+        pipeline.timesteps_to_return = timesteps
+        return pipeline
+
     @torch.no_grad()
     def __call__(
         self,
@@ -115,7 +125,7 @@ class TemporalDDPMPipeline(DDPMPipeline):
             if XLA_AVAILABLE:
                 xm.mark_step()
 
-            if t.item() in {250,500,750,0}:
+            if t.item() in self.timesteps_to_return:
                 image_interim = (image / 2 + 0.5).clamp(0, 1)
                 image_interim = image_interim.cpu().permute(0, 2, 3, 1).numpy()
                 if output_type == "pil":
@@ -126,13 +136,3 @@ class TemporalDDPMPipeline(DDPMPipeline):
         return results
 
 
-
-def create_patched_from_pretrained(model_name, noise, temporal=True):
-    # Note: DDPMPipeline has output clamping, as it needs to output valid pixel values
-    if temporal:
-        ddpm = TemporalDDPMPipeline.from_pretrained(model_name)
-    else:
-        ddpm = DDPMPipeline.from_pretrained(model_name)
-    ddpm.scheduler.step = types.MethodType(step, ddpm.scheduler)
-    ddpm.scheduler.noise_gen = noise
-    return ddpm
