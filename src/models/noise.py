@@ -11,11 +11,11 @@ class Noise(ABC):
     def __call__(self, like: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError("Subclasses should implement this method.")
 
-    def add_score_noise(self, sample: torch.Tensor, current_beta_t) -> torch.Tensor:
+    def add_score_noise(self, sample: torch.Tensor, step_) -> torch.Tensor:
         if self.std == 0:
             return sample
         noise = self(sample)
-        return sample + 2 * current_beta_t * noise
+        return sample + 2 * step_ * noise
 
 class GaussianNoise(Noise):
     def __init__(self, std: float = 1, generator=None):
