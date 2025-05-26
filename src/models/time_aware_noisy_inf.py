@@ -60,7 +60,8 @@ if __name__ == "__main__":
 
     dataset_to_model = {
         "cifar10": "google/ddpm-cifar10-32",
-        "celebahq": "google/ddpm-celebahq-256"
+        "celebahq": "google/ddpm-celebahq-256",
+        "church": "google/ddpm-church-256",
     }
 
     # torchrun sets these ENV vars
