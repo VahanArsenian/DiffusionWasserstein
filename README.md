@@ -16,13 +16,11 @@ python src/metrics/fid.py --force --noisy_folder="src/data/temporal/noisy_score_
 ## Citations
 
 ```bibtex
-@misc{assessingqualitydenoisingdiffusion,
+@inproceedings{assessingqualitydenoisingdiffusion,
       title={Assessing the Quality of Denoising Diffusion Models in Wasserstein Distance: Noisy Score and Optimal Bounds}, 
       author={Vahan Arsenyan and Elen Vardanyan and Arnak Dalalyan},
       year={2025},
-      eprint={2506.09681},
-      archivePrefix={arXiv},
-      primaryClass={stat.ML},
-      url={https://arxiv.org/abs/2506.09681}, 
+      journal={Advances in Neural Information Processing Systems, 2025}
+      url={https://neurips.cc/virtual/2025/poster/119294}, 
 }
 ```
